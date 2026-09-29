@@ -1,0 +1,33 @@
+{
+  "name": "flashcrypto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time Crypto Price & Candlestick Dashboard",
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:generate": "prisma generate --schema=libs/db/prisma/schema.prisma",
+    "db:push": "prisma db push --schema=libs/db/prisma/schema.prisma",
+    "db:seed": "tsx libs/db/prisma/seed.ts",
+    "db:studio": "prisma studio --schema=libs/db/prisma/schema.prisma",
+    "ingest:dev": "npm run --workspace=apps/ingest dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.4",
+    "ioredis": "^6.0.0",
+    "ws": "^8.22.0"
+  }
+}

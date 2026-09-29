@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Instrument {
+  symbol         String   @id // VD: BTCUSDT
+  base           String   // VD: BTC
+  quote          String   // VD: USDT
+  pricePrecision Int      @default(2)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  candles Candle[]
+  alerts  Alert[]
+
+  @@map("instruments")
+}
+
+model Candle {
+  symbol     String
+  interval   String   @default("1m") // Khung nến: 1m, 5m, 15m, 1h, 1d
+  openTime   BigInt   // Timestamp mili-giây
+  open       Decimal  @db.Decimal(18, 8)
+  high       Decimal  @db.Decimal(18, 8)
+  low        Decimal  @db.Decimal(18, 8)
+  close      Decimal  @db.Decimal(18, 8)
+  volume     Decimal  @db.Decimal(28, 8)
+  createdAt  DateTime @default(now())
+
+  instrument Instrument @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+
+  @@id([symbol, interval, openTime])
+  @@index([symbol, interval, openTime(sort: Desc)])
+  @@map("candles")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  telegramChatId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  alerts Alert[]
+
+  @@map("users")
+}
+
+enum AlertDirection {
+  ABOVE
+  BELOW
+}
+
+enum AlertChannel {
+  BROWSER
+  TELEGRAM
+}
+
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  CANCELLED
+}
+
+model Alert {
+  id          String         @id @default(uuid())
+  userId      String
+  symbol      String
+  direction   AlertDirection
+  threshold   Decimal        @db.Decimal(18, 8)
+  status      AlertStatus    @default(ACTIVE)
+  channel     AlertChannel   @default(BROWSER)
+  createdAt   DateTime       @default(now())
+  triggeredAt DateTime?
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+
+  @@index([symbol, status])
+  @@index([userId, status])
+  @@map("alerts")
+}

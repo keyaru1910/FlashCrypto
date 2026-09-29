@@ -1,0 +1,21 @@
+{
+  "name": "@flashcrypto/ingest",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@flashcrypto/db": "*",
+    "@flashcrypto/market-data": "*",
+    "@flashcrypto/redis-keys": "*",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
