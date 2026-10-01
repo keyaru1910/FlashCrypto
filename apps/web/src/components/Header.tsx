@@ -1,14 +1,20 @@
 'use client';
 
 import React from 'react';
-import { Zap, Activity, Wifi, RefreshCw } from 'lucide-react';
+import { Zap, Activity, Wifi, RefreshCw, Bell, User, LogOut, LogIn } from 'lucide-react';
 import { ConnectionStatus } from '../hooks/useCryptoStream';
+import { UserProfile } from '../hooks/useAuth';
 
 interface HeaderProps {
   status: ConnectionStatus;
   latencyMs: number;
   ticksPerSecond: number;
   activeCount: number;
+  user: UserProfile | null;
+  activeAlertsCount?: number;
+  onOpenAuthModal: () => void;
+  onOpenAlertsDrawer: () => void;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +22,11 @@ export const Header: React.FC<HeaderProps> = ({
   latencyMs,
   ticksPerSecond,
   activeCount,
+  user,
+  activeAlertsCount = 0,
+  onOpenAuthModal,
+  onOpenAlertsDrawer,
+  onLogout,
 }) => {
   return (
     <header
@@ -23,13 +34,15 @@ export const Header: React.FC<HeaderProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '18px 32px',
+        padding: '16px 32px',
         borderBottom: '1px solid var(--border-color)',
-        background: 'rgba(10, 14, 23, 0.8)',
+        background: 'rgba(10, 14, 23, 0.85)',
         backdropFilter: 'blur(16px)',
         position: 'sticky',
         top: 0,
         zIndex: 50,
+        flexWrap: 'wrap',
+        gap: '12px',
       }}
     >
       {/* Brand Logo */}
@@ -39,14 +52,20 @@ export const Header: React.FC<HeaderProps> = ({
             width: '40px',
             height: '40px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+            overflow: 'hidden',
+            boxShadow: '0 0 20px rgba(99, 102, 241, 0.35)',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
           }}
         >
-          <Zap size={22} color="#ffffff" />
+          <img
+            src="/favicon.png"
+            alt="FlashCrypto Logo"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -73,8 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Connection & Telemetry Stats */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      {/* Center: Telemetry Stats */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         {/* Ticks Rate */}
         <div
           style={{
@@ -141,6 +160,140 @@ export const Header: React.FC<HeaderProps> = ({
             <RefreshCw size={12} className="pulse-reconnecting" />
             <span>CONNECTING...</span>
           </div>
+        )}
+      </div>
+
+      {/* Right: User Profile & Alerts Drawer Button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Bell button with active alerts count */}
+            <button
+              onClick={onOpenAlertsDrawer}
+              title="Danh sách cảnh báo của tôi"
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Bell size={18} />
+              {activeAlertsCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    background: 'var(--accent-indigo)',
+                    color: '#fff',
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 0 8px rgba(99, 102, 241, 0.6)',
+                  }}
+                >
+                  {activeAlertsCount}
+                </span>
+              )}
+            </button>
+
+            {/* User chip */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <div
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-indigo)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  color: '#fff',
+                }}
+              >
+                {user.email.charAt(0).toUpperCase()}
+              </div>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  maxWidth: '120px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {user.email.split('@')[0]}
+              </span>
+            </div>
+
+            {/* Logout button */}
+            <button
+              onClick={onLogout}
+              title="Đăng xuất"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpenAuthModal}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              background: 'var(--accent-indigo)',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+            }}
+          >
+            <LogIn size={16} />
+            <span>Đăng Nhập</span>
+          </button>
         )}
       </div>
     </header>

@@ -6,6 +6,10 @@ import { prisma } from '@flashcrypto/db';
 import { SubscriptionManager } from './services/subscription-manager.js';
 import { createStreamRouter } from './routes/stream.route.js';
 import { createInstrumentsRouter } from './routes/instruments.route.js';
+import { createCandlesRouter } from './routes/candles.route.js';
+import { createAuthRouter } from './routes/auth.route.js';
+import { createAlertsRouter } from './routes/alerts.route.js';
+import { createNotificationsRouter } from './routes/notifications.route.js';
 
 const PORT = Number(process.env.PORT) || 4000;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6380';
@@ -62,6 +66,10 @@ async function startApiGateway() {
   const apiV1Router = express.Router();
   apiV1Router.use('/', createInstrumentsRouter(redisClient));
   apiV1Router.use('/', createStreamRouter(redisClient, subscriptionManager, getAllActiveSymbols));
+  apiV1Router.use('/', createCandlesRouter(REDIS_URL));
+  apiV1Router.use('/', createAuthRouter());
+  apiV1Router.use('/', createAlertsRouter(redisClient));
+  apiV1Router.use('/', createNotificationsRouter(REDIS_URL));
 
   app.use('/api/v1', apiV1Router);
 
@@ -70,6 +78,10 @@ async function startApiGateway() {
     console.log(`🚀 [API Gateway] Đang chạy tại cổng http://localhost:${PORT}`);
     console.log(`📡 [SSE Stream] Endpoint: http://localhost:${PORT}/api/v1/stream`);
     console.log(`📊 [Instruments] Endpoint: http://localhost:${PORT}/api/v1/instruments`);
+    console.log(`🕯️  [Candles] Endpoint: http://localhost:${PORT}/api/v1/candles`);
+    console.log(`🔐 [Auth] Endpoint: http://localhost:${PORT}/api/v1/auth/(login|register|me)`);
+    console.log(`🔔 [Alerts] Endpoint: http://localhost:${PORT}/api/v1/alerts`);
+    console.log(`📱 [User Notifications] Endpoint: http://localhost:${PORT}/api/v1/me/stream`);
   });
 
   // Graceful shutdown

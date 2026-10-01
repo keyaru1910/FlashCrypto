@@ -18,6 +18,7 @@
     "db:seed": "tsx libs/db/prisma/seed.ts",
     "db:studio": "prisma studio --schema=libs/db/prisma/schema.prisma",
     "ingest:dev": "npm run --workspace=apps/ingest dev",
+    "worker:dev": "npm run --workspace=apps/worker dev",
     "api:dev": "npm run --workspace=apps/api dev",
     "web:dev": "npm run --workspace=apps/web dev"
   },

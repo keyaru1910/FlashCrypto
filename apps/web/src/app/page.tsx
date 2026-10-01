@@ -1,11 +1,56 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Header } from '../components/Header';
 import { MarketStats } from '../components/MarketStats';
 import { PriceTable } from '../components/PriceTable';
+import { AuthModal } from '../components/AuthModal';
+import { CreateAlertModal } from '../components/CreateAlertModal';
+import { MyAlertsDrawer } from '../components/MyAlertsDrawer';
+import { LiveAlertToast } from '../components/LiveAlertToast';
 import { useCryptoStream } from '../hooks/useCryptoStream';
-import { Bell, X, Check, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { useAlerts } from '../hooks/useAlerts';
+import { useUserNotifications, TriggeredAlertNotification } from '../hooks/useUserNotifications';
+import { BarChart3, Check } from 'lucide-react';
+
+// Dynamic import TradingChart để tránh lỗi SSR liên quan đến Canvas của Lightweight Charts
+const TradingChart = dynamic(
+  () => import('../components/TradingChart').then((mod) => mod.TradingChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="glass-panel"
+        style={{
+          height: '560px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '16px',
+          background: '#0b0f19',
+          gap: '12px',
+        }}
+      >
+        <div
+          style={{
+            width: '36px',
+            height: '36px',
+            border: '3px solid rgba(99, 102, 241, 0.2)',
+            borderTopColor: 'var(--accent-indigo)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+          Đang khởi tạo TradingView Chart...
+        </span>
+      </div>
+    ),
+  }
+);
 
 interface Instrument {
   symbol: string;
@@ -41,14 +86,35 @@ export default function DashboardPage() {
   const [instruments, setInstruments] = useState<Instrument[]>(DEFAULT_INSTRUMENTS);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
 
-  // Modal alert
-  const [alertModalOpen, setAlertModalOpen] = useState(false);
-  const [alertSymbol, setAlertSymbol] = useState('BTCUSDT');
-  const [alertPrice, setAlertPrice] = useState('');
-  const [alertDirection, setAlertDirection] = useState<'ABOVE' | 'BELOW'>('ABOVE');
+  // Modal states
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [createAlertModalOpen, setCreateAlertModalOpen] = useState(false);
+  const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
+  const [targetAlertSymbol, setTargetAlertSymbol] = useState('BTCUSDT');
+  const [targetAlertPrice, setTargetAlertPrice] = useState('');
   const [alertSuccessToast, setAlertSuccessToast] = useState(false);
 
+  // Live triggered notification pop-up state
+  const [activeTriggeredNotification, setActiveTriggeredNotification] =
+    useState<TriggeredAlertNotification | null>(null);
+
+  // 1. Auth Hook
+  const { user, token, login, register, quickDemoLogin, logout } = useAuth();
+
+  // 2. Crypto Prices Live Stream Hook
   const { prices, status, latencyMs, ticksPerSecond } = useCryptoStream();
+
+  // 3. Alerts Management Hook
+  const { alerts, isLoading: alertsLoading, createAlert, deleteAlert, fetchAlerts } = useAlerts(token);
+
+  // 4. User In-app Notification SSE Stream Hook
+  const handleAlertReceived = useCallback((notification: TriggeredAlertNotification) => {
+    setActiveTriggeredNotification(notification);
+    // Tự động tải lại danh sách cảnh báo
+    fetchAlerts();
+  }, [fetchAlerts]);
+
+  useUserNotifications(token, handleAlertReceived);
 
   // Tải danh sách instruments từ API
   useEffect(() => {
@@ -71,17 +137,28 @@ export default function DashboardPage() {
   }, []);
 
   const handleOpenAlertModal = (symbol: string, currentPrice: string) => {
-    setAlertSymbol(symbol);
-    setAlertPrice(currentPrice);
-    setAlertModalOpen(true);
+    setTargetAlertSymbol(symbol);
+    setTargetAlertPrice(currentPrice);
+    setCreateAlertModalOpen(true);
   };
 
-  const handleSaveAlert = () => {
-    // Đã lưu alert (sẽ kết nối API ở Phase 4)
-    setAlertModalOpen(false);
-    setAlertSuccessToast(true);
-    setTimeout(() => setAlertSuccessToast(false), 3000);
+  const handleSubmitAlert = async (params: {
+    symbol: string;
+    direction: 'ABOVE' | 'BELOW';
+    threshold: number | string;
+    channel?: 'BROWSER' | 'TELEGRAM';
+  }) => {
+    const res = await createAlert(params);
+    if (res.success) {
+      setAlertSuccessToast(true);
+      setTimeout(() => setAlertSuccessToast(false), 3000);
+    }
+    return res;
   };
+
+  // Thông tin giá của symbol đang chọn
+  const selectedPriceData = prices[selectedSymbol];
+  const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -91,6 +168,11 @@ export default function DashboardPage() {
         latencyMs={latencyMs}
         ticksPerSecond={ticksPerSecond}
         activeCount={instruments.length}
+        user={user}
+        activeAlertsCount={activeAlertsCount}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenAlertsDrawer={() => setAlertsDrawerOpen(true)}
+        onLogout={logout}
       />
 
       {/* Main Content */}
@@ -98,14 +180,79 @@ export default function DashboardPage() {
         {/* Market Quick Stats */}
         <MarketStats prices={prices} />
 
+        {/* Real-time Candlestick Chart Section */}
+        <div style={{ marginBottom: '32px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart3 size={20} color="var(--accent-indigo)" />
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Biểu Đồ Nến Kỹ Thuật (TradingView)</h2>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  color: 'var(--accent-cyan)',
+                  fontWeight: 700,
+                }}
+              >
+                {selectedSymbol}
+              </span>
+            </div>
+
+            {/* Quick symbol selector */}
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT'].map((sym) => (
+                <button
+                  key={sym}
+                  onClick={() => setSelectedSymbol(sym)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    border: '1px solid',
+                    cursor: 'pointer',
+                    background: selectedSymbol === sym ? 'var(--accent-indigo)' : 'rgba(255, 255, 255, 0.05)',
+                    borderColor: selectedSymbol === sym ? 'var(--accent-indigo)' : 'var(--border-color)',
+                    color: selectedSymbol === sym ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {sym.replace('USDT', '')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <TradingChart
+            symbol={selectedSymbol}
+            currentPrice={selectedPriceData?.price}
+            priceChange24h={selectedPriceData?.priceChangePercent24h}
+            volume24h={selectedPriceData?.volume24h}
+            onOpenAlertModal={handleOpenAlertModal}
+          />
+        </div>
+
         {/* Real-time Price Table */}
-        <PriceTable
-          instruments={instruments}
-          prices={prices}
-          selectedSymbol={selectedSymbol}
-          onSelectSymbol={setSelectedSymbol}
-          onOpenAlertModal={handleOpenAlertModal}
-        />
+        <div style={{ marginBottom: '32px' }}>
+          <PriceTable
+            instruments={instruments}
+            prices={prices}
+            selectedSymbol={selectedSymbol}
+            onSelectSymbol={setSelectedSymbol}
+            onOpenAlertModal={handleOpenAlertModal}
+          />
+        </div>
       </main>
 
       {/* Footer */}
@@ -118,172 +265,48 @@ export default function DashboardPage() {
           fontSize: '0.8rem',
         }}
       >
-        <p>FlashCrypto ⚡ — Hệ thống Bảng giá Real-time & Cảnh báo Tức thời. Powered by Next.js & Server-Sent Events (SSE).</p>
+        <p>FlashCrypto ⚡ — Real-time Crypto Price & Candlestick Dashboard với Price Alert Engine O(log N).</p>
       </footer>
 
-      {/* Modal Cảnh báo Giá (Alert Creation Modal) */}
-      {alertModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="glass-panel"
-            style={{
-              width: '100%',
-              maxWidth: '440px',
-              padding: '28px',
-              background: '#111827',
-              border: '1px solid var(--border-highlight)',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color="var(--accent-cyan)" />
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Đặt Cảnh Báo Giá</h3>
-              </div>
-              <button
-                onClick={() => setAlertModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {/* 1. Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onLogin={login}
+        onRegister={register}
+        onQuickDemo={quickDemoLogin}
+      />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                  Cặp Coin
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={alertSymbol}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontWeight: 700,
-                  }}
-                />
-              </div>
+      {/* 2. Create Alert Modal */}
+      <CreateAlertModal
+        isOpen={createAlertModalOpen}
+        onClose={() => setCreateAlertModalOpen(false)}
+        symbol={targetAlertSymbol}
+        initialPrice={targetAlertPrice}
+        isLoggedIn={Boolean(user)}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onSubmitAlert={handleSubmitAlert}
+      />
 
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                  Điều Kiện Kích Hoạt
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button
-                    onClick={() => setAlertDirection('ABOVE')}
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: 'none',
-                      background: alertDirection === 'ABOVE' ? 'var(--green-up-bg)' : 'rgba(255, 255, 255, 0.05)',
-                      color: alertDirection === 'ABOVE' ? 'var(--green-up)' : 'var(--text-secondary)',
-                      borderWidth: '1px',
-                      borderStyle: 'solid',
-                      borderColor: alertDirection === 'ABOVE' ? 'var(--green-up)' : 'transparent',
-                    }}
-                  >
-                    Giá vượt lên trên (≥)
-                  </button>
-                  <button
-                    onClick={() => setAlertDirection('BELOW')}
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: 'none',
-                      background: alertDirection === 'BELOW' ? 'var(--red-down-bg)' : 'rgba(255, 255, 255, 0.05)',
-                      color: alertDirection === 'BELOW' ? 'var(--red-down)' : 'var(--text-secondary)',
-                      borderWidth: '1px',
-                      borderStyle: 'solid',
-                      borderColor: alertDirection === 'BELOW' ? 'var(--red-down)' : 'transparent',
-                    }}
-                  >
-                    Giá rơi xuống dưới (≤)
-                  </button>
-                </div>
-              </div>
+      {/* 3. My Alerts Drawer */}
+      <MyAlertsDrawer
+        isOpen={alertsDrawerOpen}
+        onClose={() => setAlertsDrawerOpen(false)}
+        alerts={alerts}
+        isLoading={alertsLoading}
+        onDeleteAlert={deleteAlert}
+        onOpenCreateModal={() => {
+          setTargetAlertSymbol(selectedSymbol);
+          setTargetAlertPrice(selectedPriceData?.price || '');
+          setCreateAlertModalOpen(true);
+        }}
+      />
 
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                  Ngưỡng Giá Kích Hoạt (USD)
-                </label>
-                <input
-                  type="text"
-                  value={alertPrice}
-                  onChange={(e) => setAlertPrice(e.target.value)}
-                  placeholder="Nhập giá muốn nhận cảnh báo..."
-                  className="mono-num"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    outline: 'none',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  onClick={() => setAlertModalOpen(false)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveAlert}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    background: 'var(--accent-indigo)',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-                  }}
-                >
-                  Tạo Cảnh Báo
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 4. Live Triggered Alert Toast */}
+      <LiveAlertToast
+        notification={activeTriggeredNotification}
+        onClose={() => setActiveTriggeredNotification(null)}
+      />
 
       {/* Toast thông báo tạo cảnh báo thành công */}
       {alertSuccessToast && (
@@ -306,7 +329,7 @@ export default function DashboardPage() {
           }}
         >
           <Check size={18} />
-          <span>Đã lưu cảnh báo giá thành công!</span>
+          <span>Đã kích hoạt cảnh báo giá vào hệ thống Redis!</span>
         </div>
       )}
     </div>

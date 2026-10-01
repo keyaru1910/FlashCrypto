@@ -185,7 +185,7 @@ export const PriceTable: React.FC<PriceTableProps> = ({
                 : '---';
 
               const timeSinceUpdate = liveData?.lastUpdated
-                ? `${Math.max(0, ((Date.now() - liveData.lastUpdated) / 1000).toFixed(1))}s trước`
+                ? `${Math.max(0, (Date.now() - liveData.lastUpdated) / 1000).toFixed(1)}s trước`
                 : '---';
 
               return (

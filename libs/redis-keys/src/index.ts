@@ -46,6 +46,14 @@ export const RedisKeys = {
   },
 
   /**
+   * Channel Pub/Sub thông báo alert trực tiếp tới user (In-app SSE push)
+   * @param userId ID của người dùng
+   */
+  notificationChannel(userId: string): string {
+    return `notifications:${userId}`;
+  },
+
+  /**
    * Khóa phân tán (Distributed Lock) phục vụ chế độ Ingest Active-Standby
    */
   INGEST_LEADER_LOCK: 'lock:ingest',
