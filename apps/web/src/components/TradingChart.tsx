@@ -48,30 +48,38 @@ export function TradingChart({
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
 
+  const isChartReadyRef = useRef<boolean>(false);
+
   // Hook nhận nến lịch sử và nến live với buffer & merge
   const { candles, isLoading, streamConnected, error } = useCandleStream({
     symbol,
     interval,
-    limit: 300,
     onRealtimeUpdate: (candle) => {
-      // Cập nhật real-time ngay vào series của Lightweight Charts
-      if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.update({
-          time: candle.time as UTCTimestamp,
-          open: candle.open,
-          high: candle.high,
-          low: candle.low,
-          close: candle.close,
-        });
-      }
+      // Chỉ cập nhật real-time khi biểu đồ đã hoàn tất nạp dữ liệu lịch sử ban đầu
+      if (!isChartReadyRef.current) return;
 
-      if (volumeSeriesRef.current) {
-        const isUp = candle.close >= candle.open;
-        volumeSeriesRef.current.update({
-          time: candle.time as UTCTimestamp,
-          value: candle.volume,
-          color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
-        });
+      try {
+        if (candlestickSeriesRef.current) {
+          candlestickSeriesRef.current.update({
+            time: candle.time as UTCTimestamp,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+          });
+        }
+
+        if (volumeSeriesRef.current) {
+          const isUp = candle.close >= candle.open;
+          volumeSeriesRef.current.update({
+            time: candle.time as UTCTimestamp,
+            value: candle.volume,
+            color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+          });
+        }
+      } catch (err) {
+        // Tránh unhandled runtime exception khi chart đang chuyển đổi symbol/timeframe
+        console.warn('Bỏ qua lỗi cập nhật nến live:', err);
       }
     },
   });
@@ -123,6 +131,9 @@ export function TradingChart({
         borderColor: 'rgba(255, 255, 255, 0.08)',
         timeVisible: true,
         secondsVisible: false,
+        barSpacing: 8,
+        minBarSpacing: 1.5,
+        rightOffset: 12,
       },
       handleScroll: {
         mouseWheel: true,
@@ -200,6 +211,7 @@ export function TradingChart({
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      isChartReadyRef.current = false;
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
@@ -208,41 +220,66 @@ export function TradingChart({
     };
   }, []);
 
-  // 2. Nạp dữ liệu nến vào Chart khi `candles` thay đổi
+  const lastLoadedKeyRef = useRef<string>('');
+
+  // 2. Nạp dữ liệu nến vào Chart khi tải xong lịch sử (Chỉ nạp 1 lần duy nhất khi đổi coin hoặc timeframe)
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
     if (candles.length === 0) return;
 
-    // Đảm bảo dữ liệu được sắp xếp theo thời gian tăng dần và loại bỏ trùng lặp
-    const uniqueMap = new Map<number, ChartCandle>();
-    for (const c of candles) {
-      uniqueMap.set(c.time, c);
-    }
-    const sortedCandles = Array.from(uniqueMap.values()).sort((a, b) => a.time - b.time);
+    const currentKey = `${symbol}_${interval}`;
+    
+    // Nếu chưa nạp hoặc vừa đổi symbol/interval thì mới setData và định vị lại viewport
+    if (lastLoadedKeyRef.current !== currentKey) {
+      lastLoadedKeyRef.current = currentKey;
 
-    const candleData = sortedCandles.map((c) => ({
-      time: c.time as UTCTimestamp,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
+      // Đảm bảo dữ liệu được sắp xếp theo thời gian tăng dần và loại bỏ trùng lặp
+      const uniqueMap = new Map<number, ChartCandle>();
+      for (const c of candles) {
+        uniqueMap.set(c.time, c);
+      }
+      const sortedCandles = Array.from(uniqueMap.values()).sort((a, b) => a.time - b.time);
 
-    const volumeData = sortedCandles.map((c) => {
-      const isUp = c.close >= c.open;
-      return {
+      const candleData = sortedCandles.map((c) => ({
         time: c.time as UTCTimestamp,
-        value: c.volume,
-        color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
-      };
-    });
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
 
-    candlestickSeriesRef.current.setData(candleData);
-    volumeSeriesRef.current.setData(volumeData);
+      const volumeData = sortedCandles.map((c) => {
+        const isUp = c.close >= c.open;
+        return {
+          time: c.time as UTCTimestamp,
+          value: c.volume,
+          color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+        };
+      });
 
-    // Tự động căn chỉnh biểu đồ đẹp mắt
-    chartRef.current?.timeScale().fitContent();
-  }, [candles]);
+      try {
+        candlestickSeriesRef.current.setData(candleData);
+        volumeSeriesRef.current.setData(volumeData);
+        isChartReadyRef.current = true;
+
+        // Cài đặt khoảng cách nến tiêu chuẩn và cuộn tới thời gian mới nhất (không dùng fitContent để tránh nén 3000 nến thành 1 vệt)
+        chartRef.current?.timeScale().applyOptions({
+          barSpacing: 8,
+          minBarSpacing: 0.5,
+          rightOffset: 12,
+        });
+        chartRef.current?.timeScale().scrollToRealTime();
+      } catch (err) {
+        console.error('Lỗi khi nạp dữ liệu ban đầu vào chart:', err);
+      }
+    }
+  }, [candles, symbol, interval]);
+
+  // Reset tracking key khi đổi symbol hoặc interval
+  useEffect(() => {
+    lastLoadedKeyRef.current = '';
+    isChartReadyRef.current = false;
+  }, [symbol, interval]);
 
   // 3. Ẩn/hiện Volume Series
   useEffect(() => {
@@ -253,7 +290,7 @@ export function TradingChart({
     }
   }, [showVolume]);
 
-  const intervals: CandleInterval[] = ['1m', '5m', '15m', '1h', '1d'];
+  const intervals: CandleInterval[] = ['1m', '5m', '15m', '1h', '1d', '1w'];
 
   // Cây nến hiển thị trên header: ưu tiên cây nến đang hover, nếu không có thì lấy cây nến cuối cùng
   const latestCandle = candles[candles.length - 1];

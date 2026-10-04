@@ -4,6 +4,7 @@ import { RedisKeys } from '@flashcrypto/redis-keys';
 import { PriceTick } from '@flashcrypto/market-data';
 import { SubscriptionManager } from '../services/subscription-manager.js';
 import { ClientSession } from '../services/client-session.js';
+import { MetricsCollector } from '../services/metrics.service.js';
 
 export function createStreamRouter(
   redisClient: Redis,
@@ -38,6 +39,7 @@ export function createStreamRouter(
     res.flushHeaders();
 
     activeClientsCount++;
+    MetricsCollector.getInstance().onClientConnected();
     const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const session = new ClientSession(clientId, res, symbolsToSubscribe, 250);
 
@@ -84,6 +86,7 @@ export function createStreamRouter(
     // 6. Xử lý khi Client ngắt kết nối (đóng tab, chuyển trang, mất mạng)
     req.on('close', async () => {
       activeClientsCount = Math.max(0, activeClientsCount - 1);
+      MetricsCollector.getInstance().onClientDisconnected();
       clearInterval(pingInterval);
       session.close();
       await subscriptionManager.unsubscribe(symbolsToSubscribe, tickListener);

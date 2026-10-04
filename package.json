@@ -17,16 +17,22 @@
     "db:push": "prisma db push --schema=libs/db/prisma/schema.prisma",
     "db:seed": "tsx libs/db/prisma/seed.ts",
     "db:studio": "prisma studio --schema=libs/db/prisma/schema.prisma",
+    "dev": "concurrently -n \"INGEST,WORKER,API,WEB\" -c \"cyan,magenta,green,blue\" \"npm run ingest:dev\" \"npm run worker:dev\" \"npm run api:dev\" \"npm run web:dev\"",
+    "start:all": "docker compose up -d && npm run dev",
     "ingest:dev": "npm run --workspace=apps/ingest dev",
     "worker:dev": "npm run --workspace=apps/worker dev",
     "api:dev": "npm run --workspace=apps/api dev",
-    "web:dev": "npm run --workspace=apps/web dev"
+    "web:dev": "npm run --workspace=apps/web dev",
+    "backfill:history": "tsx scripts/backfill-history.ts",
+    "test:load": "tsx scripts/load-test-sse.ts",
+    "test:chaos": "tsx scripts/chaos-test.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.13.9",
     "@types/ws": "^8.18.2",
+    "concurrently": "^10.0.5",
     "tsx": "^4.23.15",
     "typescript": "^5.7.3"
   },

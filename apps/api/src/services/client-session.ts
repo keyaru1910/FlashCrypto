@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { PriceTick } from '@flashcrypto/market-data';
+import { MetricsCollector } from './metrics.service.js';
 
 /**
  * Lớp ClientSession quản lý một kết nối SSE của client, thực hiện cơ chế Conflation Buffer:
@@ -81,6 +82,12 @@ export class ClientSession {
         const batch = Array.from(this.pendingTicks.values());
         this.pendingTicks.clear();
         this.writeSseEvent('delta', batch);
+
+        // Ghi nhận chỉ số độ trễ tick vào MetricsCollector
+        if (batch.length > 0) {
+          const latestTick = batch[batch.length - 1];
+          MetricsCollector.getInstance().recordTickDelivery(latestTick.timestamp, batch.length);
+        }
       }
     }, this.flushIntervalMs);
   }

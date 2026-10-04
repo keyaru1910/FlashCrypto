@@ -53,5 +53,5 @@ export interface MarketDataProvider {
   /**
    * Lấy lịch sử nến qua REST API để backfill nến bị thiếu khi reconnect
    */
-  getHistory(symbol: string, interval: string, startTime: number, endTime?: number, limit?: number): Promise<Kline[]>;
+  getHistory(symbol: string, interval: string, startTime?: number, endTime?: number, limit?: number): Promise<Kline[]>;
 }

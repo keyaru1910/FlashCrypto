@@ -14,6 +14,7 @@ interface HeaderProps {
   activeAlertsCount?: number;
   onOpenAuthModal: () => void;
   onOpenAlertsDrawer: () => void;
+  onOpenSystemStatus?: () => void;
   onLogout: () => void;
 }
 
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeAlertsCount = 0,
   onOpenAuthModal,
   onOpenAlertsDrawer,
+  onOpenSystemStatus,
   onLogout,
 }) => {
   return (
@@ -49,22 +51,29 @@ export const Header: React.FC<HeaderProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div
           style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
+            width: '48px',
+            height: '48px',
+            borderRadius: '14px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.15) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 0 25px rgba(99, 102, 241, 0.4)',
             overflow: 'hidden',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.35)',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            flexShrink: 0,
           }}
         >
           <img
             src="/favicon.png"
             alt="FlashCrypto Logo"
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              transform: 'scale(1.75)',
+              filter: 'brightness(1.25) contrast(1.15) drop-shadow(0 0 8px rgba(6, 182, 212, 0.7))',
+            }}
           />
         </div>
         <div>
@@ -160,6 +169,31 @@ export const Header: React.FC<HeaderProps> = ({
             <RefreshCw size={12} className="pulse-reconnecting" />
             <span>CONNECTING...</span>
           </div>
+        )}
+
+        {/* System Observability / Metrics Button */}
+        {onOpenSystemStatus && (
+          <button
+            onClick={onOpenSystemStatus}
+            title="Xem Metrics & Tình trạng hệ thống"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#818cf8',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Zap size={14} />
+            <span>Hệ Thống</span>
+          </button>
         )}
       </div>
 

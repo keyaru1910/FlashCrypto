@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { Redis } from 'ioredis';
 import { RedisKeys } from '@flashcrypto/redis-keys';
 import { requireAuth, AuthenticatedRequest } from '../middlewares/auth.middleware.js';
+import { MetricsCollector } from '../services/metrics.service.js';
 
 export function createNotificationsRouter(redisUrl: string): Router {
   const router = Router();
@@ -20,6 +21,7 @@ export function createNotificationsRouter(redisUrl: string): Router {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    MetricsCollector.getInstance().onNotificationConnected();
     const redisSub = new Redis(redisUrl, { maxRetriesPerRequest: null });
     await redisSub.subscribe(userChannel);
 
@@ -39,6 +41,7 @@ export function createNotificationsRouter(redisUrl: string): Router {
     }, 15000);
 
     req.on('close', async () => {
+      MetricsCollector.getInstance().onNotificationDisconnected();
       clearInterval(pingInterval);
       await redisSub.unsubscribe(userChannel);
       await redisSub.quit();

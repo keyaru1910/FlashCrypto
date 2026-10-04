@@ -11,7 +11,7 @@ export interface ChartCandle {
   isClosed?: boolean;
 }
 
-export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d';
+export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w' | '1M';
 
 const INTERVAL_MS: Record<CandleInterval, number> = {
   '1m': 60 * 1000,
@@ -19,6 +19,8 @@ const INTERVAL_MS: Record<CandleInterval, number> = {
   '15m': 15 * 60 * 1000,
   '1h': 60 * 60 * 1000,
   '1d': 24 * 60 * 60 * 1000,
+  '1w': 7 * 24 * 60 * 60 * 1000,
+  '1M': 30 * 24 * 60 * 60 * 1000,
 };
 
 interface UseCandleStreamOptions {
@@ -31,9 +33,10 @@ interface UseCandleStreamOptions {
 export function useCandleStream({
   symbol,
   interval,
-  limit = 300,
+  limit,
   onRealtimeUpdate,
 }: UseCandleStreamOptions) {
+  const actualLimit = limit || (interval === '1d' || interval === '1w' || interval === '1M' ? 5000 : 300);
   const [candles, setCandles] = useState<ChartCandle[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [streamConnected, setStreamConnected] = useState<boolean>(false);
@@ -73,9 +76,6 @@ export function useCandleStream({
         currentList.push(initialCandle);
         currentCandlesRef.current = currentList;
         setCandles(currentList);
-        if (onRealtimeUpdateRef.current) {
-          onRealtimeUpdateRef.current(initialCandle);
-        }
         return;
       }
 
@@ -197,7 +197,7 @@ export function useCandleStream({
     const fetchHistory = async () => {
       try {
         const res = await fetch(
-          `${apiUrl}/api/v1/candles?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`
+          `${apiUrl}/api/v1/candles?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${actualLimit}`
         );
 
         if (!res.ok) {

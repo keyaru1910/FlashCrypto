@@ -9,6 +9,7 @@ import { AuthModal } from '../components/AuthModal';
 import { CreateAlertModal } from '../components/CreateAlertModal';
 import { MyAlertsDrawer } from '../components/MyAlertsDrawer';
 import { LiveAlertToast } from '../components/LiveAlertToast';
+import { SystemStatusModal } from '../components/SystemStatusModal';
 import { useCryptoStream } from '../hooks/useCryptoStream';
 import { useAuth } from '../hooks/useAuth';
 import { useAlerts } from '../hooks/useAlerts';
@@ -90,6 +91,7 @@ export default function DashboardPage() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createAlertModalOpen, setCreateAlertModalOpen] = useState(false);
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
+  const [systemStatusOpen, setSystemStatusOpen] = useState(false);
   const [targetAlertSymbol, setTargetAlertSymbol] = useState('BTCUSDT');
   const [targetAlertPrice, setTargetAlertPrice] = useState('');
   const [alertSuccessToast, setAlertSuccessToast] = useState(false);
@@ -172,6 +174,7 @@ export default function DashboardPage() {
         activeAlertsCount={activeAlertsCount}
         onOpenAuthModal={() => setAuthModalOpen(true)}
         onOpenAlertsDrawer={() => setAlertsDrawerOpen(true)}
+        onOpenSystemStatus={() => setSystemStatusOpen(true)}
         onLogout={logout}
       />
 
@@ -306,6 +309,12 @@ export default function DashboardPage() {
       <LiveAlertToast
         notification={activeTriggeredNotification}
         onClose={() => setActiveTriggeredNotification(null)}
+      />
+
+      {/* 5. System Observability & Metrics Modal */}
+      <SystemStatusModal
+        isOpen={systemStatusOpen}
+        onClose={() => setSystemStatusOpen(false)}
       />
 
       {/* Toast thông báo tạo cảnh báo thành công */}

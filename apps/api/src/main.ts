@@ -10,6 +10,7 @@ import { createCandlesRouter } from './routes/candles.route.js';
 import { createAuthRouter } from './routes/auth.route.js';
 import { createAlertsRouter } from './routes/alerts.route.js';
 import { createNotificationsRouter } from './routes/notifications.route.js';
+import { createMetricsRouter } from './routes/metrics.route.js';
 
 const PORT = Number(process.env.PORT) || 4000;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6380';
@@ -70,8 +71,12 @@ async function startApiGateway() {
   apiV1Router.use('/', createAuthRouter());
   apiV1Router.use('/', createAlertsRouter(redisClient));
   apiV1Router.use('/', createNotificationsRouter(REDIS_URL));
+  apiV1Router.use('/', createMetricsRouter(redisClient));
 
   app.use('/api/v1', apiV1Router);
+
+  // Root endpoint /metrics trực tiếp cho Prometheus scraper
+  app.use('/', createMetricsRouter(redisClient));
 
   // Khởi động server lắng nghe
   const server = app.listen(PORT, () => {
@@ -82,6 +87,7 @@ async function startApiGateway() {
     console.log(`🔐 [Auth] Endpoint: http://localhost:${PORT}/api/v1/auth/(login|register|me)`);
     console.log(`🔔 [Alerts] Endpoint: http://localhost:${PORT}/api/v1/alerts`);
     console.log(`📱 [User Notifications] Endpoint: http://localhost:${PORT}/api/v1/me/stream`);
+    console.log(`📈 [Metrics] Endpoint: http://localhost:${PORT}/metrics & http://localhost:${PORT}/api/v1/metrics`);
   });
 
   // Graceful shutdown

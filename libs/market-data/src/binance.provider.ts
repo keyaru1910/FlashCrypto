@@ -180,23 +180,93 @@ export class BinanceProvider implements MarketDataProvider {
   }
 
   /**
-   * Lấy lịch sử nến từ Binance REST API để lấp khoảng trống (backfill gap)
+   * Lấy lịch sử nến từ Binance REST API.
+   * Hỗ trợ tự động phân trang (batch fetch) nếu limit > 1000 hoặc khoảng thời gian dài (từ năm 2017 đến nay).
    */
   async getHistory(
     symbol: string,
     interval = '1m',
-    startTime: number,
+    startTime?: number,
     endTime?: number,
     limit = 500
   ): Promise<Kline[]> {
+    const formattedSymbol = symbol.toUpperCase();
+
+    // Nếu limit <= 1000 và không cần gom nhiều batch
+    if (limit <= 1000 && !startTime) {
+      return this.fetchSingleKlineBatch(formattedSymbol, interval, startTime, endTime, limit);
+    }
+
+    // Trường hợp cần lấy nhiều hơn 1000 nến (ví dụ lịch sử 10 năm khung 1d/1h)
+    const allKlines: Kline[] = [];
+    let currentStartTime = startTime;
+    const targetEndTime = endTime || Date.now();
+    const maxTotal = Math.min(limit, 10000); // Giới hạn an toàn tối đa 10.000 nến
+
+    while (allKlines.length < maxTotal) {
+      const batchLimit = Math.min(1000, maxTotal - allKlines.length);
+      const batch = await this.fetchSingleKlineBatch(
+        formattedSymbol,
+        interval,
+        currentStartTime,
+        targetEndTime,
+        batchLimit
+      );
+
+      if (!batch || batch.length === 0) {
+        break;
+      }
+
+      allKlines.push(...batch);
+
+      // Nếu số nến trả về ít hơn batchLimit nghĩa là đã đến mốc thời gian mới nhất
+      if (batch.length < batchLimit) {
+        break;
+      }
+
+      // Cập nhật startTime cho batch tiếp theo: sau closeTime của nến cuối cùng + 1ms
+      const lastKline = batch[batch.length - 1];
+      const nextStartTime = lastKline.closeTime + 1;
+
+      if (currentStartTime && nextStartTime <= currentStartTime) {
+        break;
+      }
+      currentStartTime = nextStartTime;
+
+      if (currentStartTime >= targetEndTime) {
+        break;
+      }
+    }
+
+    // Đảm bảo không trùng lặp và sắp xếp theo thời gian tăng dần
+    const uniqueMap = new Map<number, Kline>();
+    for (const k of allKlines) {
+      uniqueMap.set(k.openTime, k);
+    }
+
+    return Array.from(uniqueMap.values()).sort((a, b) => a.openTime - b.openTime);
+  }
+
+  /**
+   * Gửi 1 request đơn lẻ lấy tối đa 1000 nến từ Binance REST API
+   */
+  private async fetchSingleKlineBatch(
+    symbol: string,
+    interval: string,
+    startTime?: number,
+    endTime?: number,
+    limit = 1000
+  ): Promise<Kline[]> {
     const url = new URL(`${this.restUrl}/api/v3/klines`);
-    url.searchParams.set('symbol', symbol.toUpperCase());
+    url.searchParams.set('symbol', symbol);
     url.searchParams.set('interval', interval);
-    url.searchParams.set('startTime', startTime.toString());
+    if (startTime) {
+      url.searchParams.set('startTime', startTime.toString());
+    }
     if (endTime) {
       url.searchParams.set('endTime', endTime.toString());
     }
-    url.searchParams.set('limit', limit.toString());
+    url.searchParams.set('limit', Math.min(limit, 1000).toString());
 
     const response = await fetch(url.toString());
     if (!response.ok) {
@@ -206,7 +276,7 @@ export class BinanceProvider implements MarketDataProvider {
     const rawKlines = (await response.json()) as any[];
 
     return rawKlines.map((item) => ({
-      symbol: symbol.toUpperCase(),
+      symbol,
       interval,
       openTime: Number(item[0]),
       open: String(item[1]),
