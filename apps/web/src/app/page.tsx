@@ -10,11 +10,13 @@ import { CreateAlertModal } from '../components/CreateAlertModal';
 import { MyAlertsDrawer } from '../components/MyAlertsDrawer';
 import { LiveAlertToast } from '../components/LiveAlertToast';
 import { SystemStatusModal } from '../components/SystemStatusModal';
+import { PlanModePanel } from '../components/PlanModePanel';
 import { useCryptoStream } from '../hooks/useCryptoStream';
 import { useAuth } from '../hooks/useAuth';
 import { useAlerts } from '../hooks/useAlerts';
 import { useUserNotifications, TriggeredAlertNotification } from '../hooks/useUserNotifications';
-import { BarChart3, Check } from 'lucide-react';
+import { usePlanMode } from '../hooks/usePlanMode';
+import { BarChart3, Check, Zap, Sparkles } from 'lucide-react';
 
 // Dynamic import TradingChart để tránh lỗi SSR liên quan đến Canvas của Lightweight Charts
 const TradingChart = dynamic(
@@ -25,7 +27,7 @@ const TradingChart = dynamic(
       <div
         className="glass-panel"
         style={{
-          height: '560px',
+          height: '620px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -46,7 +48,7 @@ const TradingChart = dynamic(
           }}
         />
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-          Đang khởi tạo TradingView Chart...
+          Đang khởi tạo TradingView Chart & Drawing Tools...
         </span>
       </div>
     ),
@@ -86,6 +88,7 @@ const DEFAULT_INSTRUMENTS: Instrument[] = [
 export default function DashboardPage() {
   const [instruments, setInstruments] = useState<Instrument[]>(DEFAULT_INSTRUMENTS);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
+  const [showPlanMode, setShowPlanMode] = useState<boolean>(true);
 
   // Modal states
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -106,15 +109,20 @@ export default function DashboardPage() {
   // 2. Crypto Prices Live Stream Hook
   const { prices, status, latencyMs, ticksPerSecond } = useCryptoStream();
 
-  // 3. Alerts Management Hook
+  // 3. Plan Mode / Paper Trading Hook
+  const planMode = usePlanMode(prices);
+
+  // 4. Alerts Management Hook
   const { alerts, isLoading: alertsLoading, createAlert, deleteAlert, fetchAlerts } = useAlerts(token);
 
-  // 4. User In-app Notification SSE Stream Hook
-  const handleAlertReceived = useCallback((notification: TriggeredAlertNotification) => {
-    setActiveTriggeredNotification(notification);
-    // Tự động tải lại danh sách cảnh báo
-    fetchAlerts();
-  }, [fetchAlerts]);
+  // 5. User In-app Notification SSE Stream Hook
+  const handleAlertReceived = useCallback(
+    (notification: TriggeredAlertNotification) => {
+      setActiveTriggeredNotification(notification);
+      fetchAlerts();
+    },
+    [fetchAlerts]
+  );
 
   useUserNotifications(token, handleAlertReceived);
 
@@ -161,6 +169,7 @@ export default function DashboardPage() {
   // Thông tin giá của symbol đang chọn
   const selectedPriceData = prices[selectedSymbol];
   const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
+  const currentPriceNumeric = selectedPriceData?.price ? parseFloat(selectedPriceData.price) : 0;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -179,12 +188,12 @@ export default function DashboardPage() {
       />
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: '28px 32px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+      <main style={{ flex: 1, padding: '24px 32px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
         {/* Market Quick Stats */}
         <MarketStats prices={prices} />
 
-        {/* Real-time Candlestick Chart Section */}
-        <div style={{ marginBottom: '32px' }}>
+        {/* Real-time Candlestick Chart & Drawing Tools Section */}
+        <div style={{ marginBottom: '28px' }}>
           <div
             style={{
               display: 'flex',
@@ -195,9 +204,9 @@ export default function DashboardPage() {
               gap: '10px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <BarChart3 size={20} color="var(--accent-indigo)" />
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Biểu Đồ Nến Kỹ Thuật (TradingView)</h2>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Biểu Đồ Kỹ Thuật & Công Cụ Vẽ</h2>
               <span
                 style={{
                   fontSize: '0.75rem',
@@ -210,6 +219,30 @@ export default function DashboardPage() {
               >
                 {selectedSymbol}
               </span>
+
+              {/* Nút Bật/Tắt Plan Mode */}
+              <button
+                onClick={() => setShowPlanMode(!showPlanMode)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: showPlanMode
+                    ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(6, 182, 212, 0.3))'
+                    : 'rgba(255, 255, 255, 0.05)',
+                  border: `1px solid ${showPlanMode ? 'var(--accent-indigo)' : 'var(--border-color)'}`,
+                  color: showPlanMode ? '#fff' : 'var(--text-muted)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Zap size={14} color={showPlanMode ? '#06b6d4' : 'var(--text-muted)'} />
+                <span>{showPlanMode ? 'Plan Mode (Đang mở)' : 'Bật Plan Mode'}</span>
+              </button>
             </div>
 
             {/* Quick symbol selector */}
@@ -246,6 +279,17 @@ export default function DashboardPage() {
           />
         </div>
 
+        {/* Plan Mode Simulation Trading Terminal Section */}
+        {showPlanMode && (
+          <div style={{ marginBottom: '28px' }}>
+            <PlanModePanel
+              symbol={selectedSymbol}
+              currentPrice={currentPriceNumeric}
+              planMode={planMode}
+            />
+          </div>
+        )}
+
         {/* Real-time Price Table */}
         <div style={{ marginBottom: '32px' }}>
           <PriceTable
@@ -268,7 +312,7 @@ export default function DashboardPage() {
           fontSize: '0.8rem',
         }}
       >
-        <p>FlashCrypto ⚡ — Real-time Crypto Price & Candlestick Dashboard với Price Alert Engine O(log N).</p>
+        <p>FlashCrypto ⚡ — Nền tảng phân tích kỹ thuật, vẽ biểu đồ và đầu tư thử nghiệm (Plan Mode) không giới hạn.</p>
       </footer>
 
       {/* 1. Auth Modal */}
