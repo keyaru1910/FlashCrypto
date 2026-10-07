@@ -13,7 +13,8 @@ export type DrawingToolType =
   | 'text'
   | 'measure'
   | 'long_position'
-  | 'short_position';
+  | 'short_position'
+  | 'eraser';
 
 export interface ChartPoint {
   time: number; // Unix timestamp tính bằng giây

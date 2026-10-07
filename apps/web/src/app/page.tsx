@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAlerts } from '../hooks/useAlerts';
 import { useUserNotifications, TriggeredAlertNotification } from '../hooks/useUserNotifications';
 import { usePlanMode } from '../hooks/usePlanMode';
+import { CoinIcon } from '../components/CoinIcon';
 import { BarChart3, Check, Zap, Sparkles } from 'lucide-react';
 
 // Dynamic import TradingChart để tránh lỗi SSR liên quan đến Canvas của Lightweight Charts
@@ -32,8 +33,8 @@ const TradingChart = dynamic(
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: '16px',
-          background: '#0b0f19',
+          borderRadius: '14px',
+          background: 'var(--bg-card)',
           gap: '12px',
         }}
       >
@@ -262,9 +263,13 @@ export default function DashboardPage() {
                     borderColor: selectedSymbol === sym ? 'var(--accent-indigo)' : 'var(--border-color)',
                     color: selectedSymbol === sym ? '#fff' : 'var(--text-secondary)',
                     transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  {sym.replace('USDT', '')}
+                  <CoinIcon symbol={sym} size={16} />
+                  <span>{sym.replace('USDT', '')}</span>
                 </button>
               ))}
             </div>
@@ -276,6 +281,9 @@ export default function DashboardPage() {
             priceChange24h={selectedPriceData?.priceChangePercent24h}
             volume24h={selectedPriceData?.volume24h}
             onOpenAlertModal={handleOpenAlertModal}
+            instruments={instruments}
+            prices={prices}
+            onSelectSymbol={setSelectedSymbol}
           />
         </div>
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Bell, Send, Monitor, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import { CoinIcon } from './CoinIcon';
 
 interface CreateAlertModalProps {
   isOpen: boolean;
@@ -175,10 +176,7 @@ export function CreateAlertModal({
             <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
               Cặp Giao Dịch
             </label>
-            <input
-              type="text"
-              disabled
-              value={symbol}
+            <div
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -188,8 +186,14 @@ export function CreateAlertModal({
                 color: 'var(--text-primary)',
                 fontWeight: 800,
                 fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
               }}
-            />
+            >
+              <CoinIcon symbol={symbol} size={24} />
+              <span>{symbol}</span>
+            </div>
           </div>
 
           {/* Direction */}

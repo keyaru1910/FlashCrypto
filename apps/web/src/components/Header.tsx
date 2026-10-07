@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
         justifyContent: 'space-between',
         padding: '16px 32px',
         borderBottom: '1px solid var(--border-color)',
-        background: 'rgba(10, 14, 23, 0.85)',
+        background: 'rgba(11, 14, 17, 0.88)',
         backdropFilter: 'blur(16px)',
         position: 'sticky',
         top: 0,
@@ -48,54 +48,79 @@ export const Header: React.FC<HeaderProps> = ({
       }}
     >
       {/* Brand Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div
           style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '14px',
+            position: 'relative',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.15) 100%)',
-            border: '1px solid rgba(99, 102, 241, 0.4)',
-            boxShadow: '0 0 25px rgba(99, 102, 241, 0.4)',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.15) 100%)',
+            border: '1px solid rgba(6, 182, 212, 0.35)',
+            boxShadow: '0 0 20px rgba(6, 182, 212, 0.25), 0 2px 10px rgba(0, 0, 0, 0.4)',
             overflow: 'hidden',
             flexShrink: 0,
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 0 25px rgba(6, 182, 212, 0.45), 0 4px 12px rgba(99, 102, 241, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.25), 0 2px 10px rgba(0, 0, 0, 0.4)';
           }}
         >
           <img
-            src="/favicon.png"
+            src="/logo.png"
             alt="FlashCrypto Logo"
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              transform: 'scale(1.75)',
-              filter: 'brightness(1.25) contrast(1.15) drop-shadow(0 0 8px rgba(6, 182, 212, 0.7))',
+              display: 'block',
+              borderRadius: '10px',
             }}
           />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              Flash<span style={{ color: 'var(--accent-cyan)' }}>Crypto</span>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+              Flash<span style={{ color: 'var(--accent-cyan)', textShadow: '0 0 12px rgba(6, 182, 212, 0.4)' }}>Crypto</span>
             </h1>
             <span
               style={{
                 fontSize: '0.65rem',
-                fontWeight: 700,
-                background: 'rgba(99, 102, 241, 0.2)',
-                color: '#818cf8',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
+                fontWeight: 800,
+                letterSpacing: '0.5px',
+                background: 'rgba(99, 102, 241, 0.18)',
+                color: '#a5b4fc',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
               }}
             >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 8px #10b981',
+                  display: 'inline-block',
+                }}
+              />
               REAL-TIME SSE
             </span>
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0', letterSpacing: '0.2px' }}>
             High-throughput Streaming & Price Alert Engine
           </p>
         </div>

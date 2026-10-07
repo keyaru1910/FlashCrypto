@@ -9,6 +9,7 @@ import {
   SimulatedTradeHistory,
 } from '../types/planMode';
 import { usePlanMode } from '../hooks/usePlanMode';
+import { CoinIcon } from './CoinIcon';
 import {
   TrendingUp,
   TrendingDown,
@@ -164,7 +165,7 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
               gap: '6px',
             }}
           >
-            <span>⚡ PLAN MODE</span>
+            <span>⚡ DEMO MODE</span>
           </div>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
             Mô phỏng đầu tư & kiểm thử chiến lược không rủi ro
@@ -531,7 +532,7 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Tổng vị thế (Notional):</span>
               <strong className="mono-num" style={{ color: '#fff' }}>
-                ${((parseFloat(marginInput) || 0) * leverage).toLocaleString()} USDT
+                ${((parseFloat(marginInput) || 0) * leverage).toLocaleString('en-US')} USDT
               </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -553,13 +554,13 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
               border: 'none',
               background:
                 side === 'LONG'
-                  ? 'linear-gradient(135deg, #10b981, #059669)'
-                  : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  ? 'linear-gradient(135deg, #0ECB81, #0ca96b)'
+                  : 'linear-gradient(135deg, #F6465D, #d83248)',
               color: '#fff',
               fontWeight: 800,
               fontSize: '0.9rem',
               cursor: 'pointer',
-              boxShadow: side === 'LONG' ? '0 4px 16px rgba(16, 185, 129, 0.4)' : '0 4px 16px rgba(239, 68, 68, 0.4)',
+              boxShadow: side === 'LONG' ? '0 4px 14px rgba(14, 203, 129, 0.3)' : '0 4px 14px rgba(246, 70, 93, 0.3)',
               transition: 'all 0.2s ease',
             }}
           >
@@ -691,7 +692,12 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
 
                         return (
                           <tr key={pos.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                            <td style={{ padding: '8px', fontWeight: 700 }}>{pos.symbol}</td>
+                            <td style={{ padding: '8px', fontWeight: 700 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <CoinIcon symbol={pos.symbol} size={18} />
+                                <span>{pos.symbol}</span>
+                              </div>
+                            </td>
                             <td style={{ padding: '8px' }}>
                               <span
                                 style={{
@@ -783,7 +789,12 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
                     <tbody>
                       {account.orders.map((ord) => (
                         <tr key={ord.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                          <td style={{ padding: '8px', fontWeight: 700 }}>{ord.symbol}</td>
+                          <td style={{ padding: '8px', fontWeight: 700 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <CoinIcon symbol={ord.symbol} size={18} />
+                              <span>{ord.symbol}</span>
+                            </div>
+                          </td>
                           <td style={{ padding: '8px' }}>
                             <span
                               style={{
@@ -864,7 +875,12 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
                         const isWin = hist.pnl >= 0;
                         return (
                           <tr key={hist.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                            <td style={{ padding: '8px', fontWeight: 700 }}>{hist.symbol}</td>
+                            <td style={{ padding: '8px', fontWeight: 700 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <CoinIcon symbol={hist.symbol} size={18} />
+                                <span>{hist.symbol}</span>
+                              </div>
+                            </td>
                             <td style={{ padding: '8px' }}>
                               <span
                                 style={{
@@ -897,10 +913,10 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
                               {hist.closeReason === 'TAKE_PROFIT'
                                 ? '🎯 Chốt lời (TP)'
                                 : hist.closeReason === 'STOP_LOSS'
-                                ? '🛑 Cắt lỗ (SL)'
-                                : hist.closeReason === 'LIQUIDATION'
-                                ? '💥 Thanh lý'
-                                : 'Thủ công'}
+                                  ? '🛑 Cắt lỗ (SL)'
+                                  : hist.closeReason === 'LIQUIDATION'
+                                    ? '💥 Thanh lý'
+                                    : 'Thủ công'}
                             </td>
                           </tr>
                         );
@@ -1060,7 +1076,7 @@ export function PlanModePanel({ symbol, currentPrice, planMode }: PlanModePanelP
                     cursor: 'pointer',
                   }}
                 >
-                  ${parseInt(amt).toLocaleString()}
+                  ${parseInt(amt).toLocaleString('en-US')}
                 </button>
               ))}
             </div>

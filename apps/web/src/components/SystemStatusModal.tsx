@@ -123,7 +123,7 @@ export const SystemStatusModal: React.FC<SystemStatusModalProps> = ({
         style={{
           width: '100%',
           maxWidth: '750px',
-          background: '#0d131f',
+          background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
           borderRadius: '16px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
@@ -286,7 +286,7 @@ export const SystemStatusModal: React.FC<SystemStatusModalProps> = ({
                     Tổng Ticks Đã Phát
                   </div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a78bfa' }}>
-                    {metrics.sseGateway.totalTicksDelivered.toLocaleString()}
+                    {metrics.sseGateway.totalTicksDelivered.toLocaleString('en-US')}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                     Gói tin realtime
@@ -391,7 +391,7 @@ export const SystemStatusModal: React.FC<SystemStatusModalProps> = ({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Lưu trữ nến (1m Candles):</span>
-                      <span style={{ fontWeight: 600 }}>{metrics.postgres.totalCandles1m?.toLocaleString() ?? 0} nến</span>
+                      <span style={{ fontWeight: 600 }}>{metrics.postgres.totalCandles1m?.toLocaleString('en-US') ?? 0} nến</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Tổng cảnh báo (Alerts):</span>

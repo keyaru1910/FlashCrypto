@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AlertItem } from '../hooks/useAlerts';
 import { X, Bell, Trash2, CheckCircle, Clock, AlertTriangle, Send, Monitor, Plus } from 'lucide-react';
+import { CoinIcon } from './CoinIcon';
 
 interface MyAlertsDrawerProps {
   isOpen: boolean;
@@ -210,6 +211,7 @@ export function MyAlertsDrawer({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CoinIcon symbol={alert.symbol} size={20} />
                       <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{alert.symbol}</span>
                       <span
                         style={{

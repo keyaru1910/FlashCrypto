@@ -1,30 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-card: rgba(17, 24, 39, 0.7);
-  --bg-card-hover: rgba(31, 41, 55, 0.8);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(99, 102, 241, 0.3);
+  --bg-primary: #0B0E11;
+  --bg-secondary: #181A20;
+  --bg-card: rgba(24, 26, 32, 0.85);
+  --bg-card-hover: rgba(30, 35, 41, 0.95);
+  --border-color: rgba(234, 236, 239, 0.08);
+  --border-highlight: rgba(99, 102, 241, 0.35);
 
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --text-primary: #EAECEF;
+  --text-secondary: #848E9C;
+  --text-muted: #5E6673;
 
   --accent-cyan: #06b6d4;
   --accent-indigo: #6366f1;
   --accent-purple: #8b5cf6;
 
-  --green-up: #10b981;
-  --green-up-bg: rgba(16, 185, 129, 0.15);
-  --green-flash: rgba(16, 185, 129, 0.4);
+  /* Chuẩn màu Trading Binance dịu mắt, độ tương phản cao */
+  --green-up: #0ECB81;
+  --green-up-bg: rgba(14, 203, 129, 0.12);
+  --green-flash: rgba(14, 203, 129, 0.35);
 
-  --red-down: #ef4444;
-  --red-down-bg: rgba(239, 68, 68, 0.15);
-  --red-flash: rgba(239, 68, 68, 0.4);
+  --red-down: #F6465D;
+  --red-down-bg: rgba(246, 70, 93, 0.12);
+  --red-flash: rgba(246, 70, 93, 0.35);
 
-  --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -40,10 +41,17 @@ body {
   font-family: var(--font-main);
   min-height: 100vh;
   overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   background-image: 
-    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.06) 0%, transparent 40%);
+    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(14, 203, 129, 0.04) 0%, transparent 40%);
   background-attachment: fixed;
+}
+
+/* Tabular numbers cho bảng biểu và hiển thị giá */
+table, th, td, .tabular-nums, .mono-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* Scrollbar đẹp */
@@ -57,12 +65,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #2B313A;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: #474D57;
 }
 
 /* Utility Glassmorphism */
@@ -71,7 +79,7 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .mono-num {
@@ -83,7 +91,7 @@ body {
 @keyframes flashGreen {
   0% {
     background-color: var(--green-flash);
-    color: #34d399;
+    color: #0ECB81;
   }
   100% {
     background-color: transparent;
@@ -93,7 +101,7 @@ body {
 @keyframes flashRed {
   0% {
     background-color: var(--red-flash);
-    color: #f87171;
+    color: #F6465D;
   }
   100% {
     background-color: transparent;

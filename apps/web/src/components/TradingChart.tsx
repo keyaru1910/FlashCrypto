@@ -14,6 +14,7 @@ import {
 } from 'lightweight-charts';
 import { useCandleStream, CandleInterval, ChartCandle } from '../hooks/useCandleStream';
 import { DrawingOverlay } from './DrawingOverlay';
+import { CoinIcon } from './CoinIcon';
 import { DrawingToolType, DrawingElement } from '../types/drawing';
 import {
   calculateSMA,
@@ -39,13 +40,48 @@ import {
   Percent,
   Edit3,
   Type,
+  Eraser,
   Ruler,
   Target,
   Trash2,
   Eye,
   EyeOff,
   Sparkles,
+  ChevronDown,
+  Search,
+  Check,
+  X,
 } from 'lucide-react';
+
+export interface InstrumentItem {
+  symbol: string;
+  base: string;
+  quote?: string;
+  pricePrecision?: number;
+}
+
+const DEFAULT_INSTRUMENTS_FALLBACK: InstrumentItem[] = [
+  { symbol: 'BTCUSDT', base: 'BTC', quote: 'USDT' },
+  { symbol: 'ETHUSDT', base: 'ETH', quote: 'USDT' },
+  { symbol: 'SOLUSDT', base: 'SOL', quote: 'USDT' },
+  { symbol: 'BNBUSDT', base: 'BNB', quote: 'USDT' },
+  { symbol: 'XRPUSDT', base: 'XRP', quote: 'USDT' },
+  { symbol: 'ADAUSDT', base: 'ADA', quote: 'USDT' },
+  { symbol: 'DOGEUSDT', base: 'DOGE', quote: 'USDT' },
+  { symbol: 'AVAXUSDT', base: 'AVAX', quote: 'USDT' },
+  { symbol: 'DOTUSDT', base: 'DOT', quote: 'USDT' },
+  { symbol: 'LINKUSDT', base: 'LINK', quote: 'USDT' },
+  { symbol: 'NEARUSDT', base: 'NEAR', quote: 'USDT' },
+  { symbol: 'SUIUSDT', base: 'SUI', quote: 'USDT' },
+  { symbol: 'APTUSDT', base: 'APT', quote: 'USDT' },
+  { symbol: 'OPUSDT', base: 'OP', quote: 'USDT' },
+  { symbol: 'ARBUSDT', base: 'ARB', quote: 'USDT' },
+  { symbol: 'LTCUSDT', base: 'LTC', quote: 'USDT' },
+  { symbol: 'TONUSDT', base: 'TON', quote: 'USDT' },
+  { symbol: 'PEPEUSDT', base: 'PEPE', quote: 'USDT' },
+  { symbol: 'SHIBUSDT', base: 'SHIB', quote: 'USDT' },
+  { symbol: 'RENDERUSDT', base: 'RENDER', quote: 'USDT' },
+];
 
 interface TradingChartProps {
   symbol: string;
@@ -53,6 +89,9 @@ interface TradingChartProps {
   priceChange24h?: string;
   volume24h?: string;
   onOpenAlertModal?: (symbol: string, price: string) => void;
+  instruments?: InstrumentItem[];
+  prices?: Record<string, { price: string; priceChangePercent24h?: string; volume24h?: string }>;
+  onSelectSymbol?: (symbol: string) => void;
 }
 
 export function TradingChart({
@@ -61,11 +100,21 @@ export function TradingChart({
   priceChange24h,
   volume24h,
   onOpenAlertModal,
+  instruments,
+  prices,
+  onSelectSymbol,
 }: TradingChartProps) {
-  const [interval, setInterval] = useState<CandleInterval>('1m');
+  // Đặt khung thời gian mặc định là 1 ngày (1d)
+  const [interval, setInterval] = useState<CandleInterval>('1d');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showVolume, setShowVolume] = useState(true);
   const [hoveredCandle, setHoveredCandle] = useState<ChartCandle | null>(null);
+
+  // Trạng thái Dropdown Chọn Đồng Coin Nhanh
+  const [coinSelectorOpen, setCoinSelectorOpen] = useState<boolean>(false);
+  const [coinSearchQuery, setCoinSearchQuery] = useState<string>('');
+  const coinSelectorRef = useRef<HTMLDivElement>(null);
+  const coinSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Trạng thái Công Cụ Vẽ (Drawing Tools)
   const [selectedTool, setSelectedTool] = useState<DrawingToolType>('cursor');
@@ -147,7 +196,7 @@ export function TradingChart({
           volumeSeriesRef.current.update({
             time: candle.time as UTCTimestamp,
             value: candle.volume,
-            color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+            color: isUp ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)',
           });
         }
       } catch (err) {
@@ -221,17 +270,17 @@ export function TradingChart({
 
     // Thêm chuỗi nến Candlestick
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderUpColor: '#10b981',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
+      upColor: '#0ECB81',
+      downColor: '#F6465D',
+      borderUpColor: '#0ECB81',
+      borderDownColor: '#F6465D',
+      wickUpColor: '#0ECB81',
+      wickDownColor: '#F6465D',
     });
 
     // Thêm chuỗi khối lượng giao dịch (Volume Histogram)
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      color: '#10b98144',
+      color: '#0ECB8144',
       priceFormat: {
         type: 'volume',
       },
@@ -312,7 +361,7 @@ export function TradingChart({
       visible: false,
     });
     const macdHist = chart.addSeries(HistogramSeries, {
-      color: '#10b981',
+      color: '#0ECB81',
       priceScaleId: 'macd_scale',
       title: 'Hist',
       visible: false,
@@ -409,7 +458,7 @@ export function TradingChart({
         return {
           time: c.time as UTCTimestamp,
           value: c.volume,
-          color: isUp ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+          color: isUp ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)',
         };
       });
 
@@ -481,6 +530,44 @@ export function TradingChart({
     volumeSeriesRef.current?.applyOptions({ visible: showVolume });
   }, [showVolume]);
 
+  // Xử lý đóng menu chọn coin khi click ra ngoài hoặc nhấn phím ESC
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (coinSelectorRef.current && !coinSelectorRef.current.contains(event.target as Node)) {
+        setCoinSelectorOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setCoinSelectorOpen(false);
+      }
+    }
+
+    if (coinSelectorOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      // Tự động focus vào ô tìm kiếm khi mở popup
+      const timer = setTimeout(() => {
+        coinSearchInputRef.current?.focus();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [coinSelectorOpen]);
+
+  const availableInstruments = instruments && instruments.length > 0 ? instruments : DEFAULT_INSTRUMENTS_FALLBACK;
+  const filteredCoins = availableInstruments.filter((inst) => {
+    const query = coinSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      inst.symbol.toLowerCase().includes(query) ||
+      inst.base.toLowerCase().includes(query)
+    );
+  });
+
   const intervals: CandleInterval[] = ['1m', '5m', '15m', '1h', '1d', '1w'];
 
   const latestCandle = candles[candles.length - 1];
@@ -502,8 +589,8 @@ export function TradingChart({
         position: isFullscreen ? 'fixed' : 'relative',
         inset: isFullscreen ? 0 : 'auto',
         zIndex: isFullscreen ? 9999 : 1,
-        borderRadius: isFullscreen ? 0 : '16px',
-        background: '#0b0f19',
+        borderRadius: isFullscreen ? 0 : '14px',
+        background: 'var(--bg-secondary)',
         border: '1px solid var(--border-color)',
         overflow: 'hidden',
         boxShadow: isFullscreen ? 'none' : '0 12px 32px rgba(0, 0, 0, 0.4)',
@@ -525,40 +612,274 @@ export function TradingChart({
       >
         {/* Left: Coin Info & Live Price */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div
+          {/* Nút bấm mở danh sách chọn Coin (Coin Selector Dropdown) */}
+          <div ref={coinSelectorRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => {
+                setCoinSelectorOpen((prev) => !prev);
+                setCoinSearchQuery('');
+              }}
+              title="Nhấn để xem danh sách và chọn đồng coin khác"
               style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '0.8rem',
-                color: '#fff',
+                gap: '8px',
+                background: coinSelectorOpen ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${coinSelectorOpen ? 'rgba(99, 102, 241, 0.65)' : 'rgba(255, 255, 255, 0.12)'}`,
+                padding: '5px 10px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                outline: 'none',
+                boxShadow: coinSelectorOpen
+                  ? '0 0 16px rgba(99, 102, 241, 0.35), 0 2px 8px rgba(0, 0, 0, 0.3)'
+                  : '0 2px 4px rgba(0, 0, 0, 0.15)',
+              }}
+              onMouseEnter={(e) => {
+                if (!coinSelectorOpen) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.09)';
+                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!coinSelectorOpen) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
-              {symbol.slice(0, 3)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '0.5px' }}>
-                {symbol}
-              </span>
-              <span
+              <CoinIcon key={symbol} symbol={symbol} size={30} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '0.5px', color: '#fff' }}>
+                  {symbol}
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.66rem',
+                    padding: '2px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'var(--text-muted)',
+                    fontWeight: 700,
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  SPOT
+                </span>
+                <ChevronDown
+                  size={15}
+                  color={coinSelectorOpen ? 'var(--accent-cyan)' : 'var(--text-muted)'}
+                  style={{
+                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transform: coinSelectorOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    marginLeft: '2px',
+                  }}
+                />
+              </div>
+            </button>
+
+            {/* Menu Dropdown Chọn Đồng Coin */}
+            {coinSelectorOpen && (
+              <div
                 style={{
-                  fontSize: '0.68rem',
-                  padding: '2px 5px',
-                  borderRadius: '4px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: 'var(--text-muted)',
-                  fontWeight: 600,
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  width: '340px',
+                  maxHeight: '430px',
+                  background: 'rgba(13, 18, 30, 0.98)',
+                  backdropFilter: 'blur(24px)',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  boxShadow: '0 20px 48px rgba(0, 0, 0, 0.85), 0 0 24px rgba(99, 102, 241, 0.25)',
+                  zIndex: 500,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  animation: 'fadeInSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
-                SPOT
-              </span>
-            </div>
+                {/* Search Bar */}
+                <div
+                  style={{
+                    padding: '12px 14px 8px 14px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                  }}
+                >
+                  <Search size={15} color="var(--accent-cyan)" />
+                  <input
+                    ref={coinSearchInputRef}
+                    type="text"
+                    value={coinSearchQuery}
+                    onChange={(e) => setCoinSearchQuery(e.target.value)}
+                    placeholder="Tìm kiếm coin (VD: BTC, ETH, SOL...)"
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#fff',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                  {coinSearchQuery && (
+                    <button
+                      onClick={() => setCoinSearchQuery('')}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '18px',
+                        height: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        padding: 0,
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Header danh sách */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '8px 14px 4px 14px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <span>Cặp Giao Dịch</span>
+                  <span>Giá / Biến Động 24h</span>
+                </div>
+
+                {/* Danh sách các Coin */}
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '4px 6px 8px 6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    maxHeight: '320px',
+                  }}
+                >
+                  {filteredCoins.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '24px 12px',
+                        textAlign: 'center',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      Không tìm thấy đồng coin nào phù hợp
+                    </div>
+                  ) : (
+                    filteredCoins.map((item) => {
+                      const isSelected = item.symbol === symbol;
+                      const priceObj = prices?.[item.symbol];
+                      const itemPrice = priceObj?.price;
+                      const itemChange = priceObj?.priceChangePercent24h;
+                      const isUp = Number(itemChange || 0) >= 0;
+
+                      return (
+                        <button
+                          key={item.symbol}
+                          onClick={() => {
+                            if (onSelectSymbol) {
+                              onSelectSymbol(item.symbol);
+                            }
+                            setCoinSelectorOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            background: isSelected ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                            border: `1px solid ${isSelected ? 'rgba(99, 102, 241, 0.45)' : 'transparent'}`,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'transparent';
+                            }
+                          }}
+                        >
+                          {/* Symbol info */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CoinIcon symbol={item.base} size={26} />
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff' }}>
+                                  {item.base}
+                                </span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                  /{item.quote || 'USDT'}
+                                </span>
+                                {isSelected && (
+                                  <Check size={12} color="var(--accent-cyan)" style={{ marginLeft: '2px' }} />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Price & Change */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' }}>
+                            <span
+                              className="mono-num"
+                              style={{
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                color: isSelected ? 'var(--accent-cyan)' : 'var(--text-primary)',
+                              }}
+                            >
+                              {itemPrice ? `$${parseFloat(itemPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : '--'}
+                            </span>
+                            {itemChange !== undefined && (
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  color: isUp ? 'var(--green-up)' : 'var(--red-down)',
+                                }}
+                              >
+                                {isUp ? `+${itemChange}%` : `${itemChange}%`}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Live Price */}
@@ -1098,6 +1419,27 @@ export function TradingChart({
             }}
           >
             <Type size={16} />
+          </button>
+
+          {/* Eraser Tool */}
+          <button
+            onClick={() => setSelectedTool('eraser')}
+            title="Cục tẩy: Xóa từng nét vẽ & chi tiết nhỏ (Eraser)"
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '6px',
+              border: 'none',
+              background: selectedTool === 'eraser' ? '#ef4444' : 'transparent',
+              color: selectedTool === 'eraser' ? '#fff' : '#f87171',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Eraser size={16} />
           </button>
 
           <div style={{ width: '24px', height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />

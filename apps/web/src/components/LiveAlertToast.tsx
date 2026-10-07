@@ -3,6 +3,7 @@
 import React from 'react';
 import { TriggeredAlertNotification } from '../hooks/useUserNotifications';
 import { BellRing, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { CoinIcon } from './CoinIcon';
 
 interface LiveAlertToastProps {
   notification: TriggeredAlertNotification | null;
@@ -65,9 +66,12 @@ export function LiveAlertToast({ notification, onClose }: LiveAlertToastProps) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-        <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.5px' }}>
-          {notification.symbol}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CoinIcon symbol={notification.symbol} size={24} />
+          <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.5px' }}>
+            {notification.symbol}
+          </span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span
             className="mono-num"

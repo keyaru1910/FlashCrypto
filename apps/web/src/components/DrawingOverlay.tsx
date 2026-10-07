@@ -32,6 +32,24 @@ const FIBONACCI_LEVELS = [
   { level: 1.0, color: '#ef4444', label: '100.0% (Đỉnh/Đáy)' },
 ];
 
+/**
+ * Tính khoảng cách từ 1 điểm đến 1 đoạn thẳng
+ */
+function distanceToSegment(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): number {
+  const l2 = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2);
+  if (l2 === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+}
+
 export function DrawingOverlay({
   chart,
   series,
@@ -51,6 +69,10 @@ export function DrawingOverlay({
   const [textInputPos, setTextInputPos] = useState<{ x: number; y: number; point: ChartPoint } | null>(null);
   const [textValue, setTextValue] = useState('');
 
+  // Vị trí con trỏ Cục Tẩy (Eraser Cursor Position)
+  const [eraserPos, setEraserPos] = useState<{ x: number; y: number } | null>(null);
+  const [isErasing, setIsErasing] = useState(false);
+
   // Chuyển đổi từ Pixel (X, Y) sang Tọa độ Nến/Giá (Time, Price)
   const pixelToChartPoint = useCallback(
     (x: number, y: number): ChartPoint | null => {
@@ -62,7 +84,6 @@ export function DrawingOverlay({
 
       if (price === null) return null;
 
-      // Nếu không tìm được time chính xác, lấy thời gian của nến gần nhất
       let validTime = time;
       if (!validTime) {
         validTime = candles[candles.length - 1].time;
@@ -100,9 +121,7 @@ export function DrawingOverlay({
     const timeEnd = Math.max(p1.time, p2.time);
     const timeDiffSeconds = timeEnd - timeStart;
 
-    // Đếm số nến nằm trong khoảng
     const barsCount = candles.filter((c) => c.time >= timeStart && c.time <= timeEnd).length || 1;
-
     const priceStart = p1.price;
     const priceEnd = p2.price;
     const priceDelta = priceEnd - priceStart;
@@ -119,7 +138,150 @@ export function DrawingOverlay({
   };
 
   /**
-   * Xử lý vẽ lại toàn bộ Canvas khi biểu đồ cuộn/zoom hoặc danh sách drawings thay đổi
+   * Thuật toán Tẩy Xóa (Eraser Engine):
+   * Quét và xóa các phần tử hoặc các nét vẽ nhỏ nằm trong bán kính tẩy
+   */
+  const eraseAtPixel = useCallback(
+    (mouseX: number, mouseY: number, radius = 16) => {
+      setDrawings((prev) => {
+        let hasChanges = false;
+        const nextDrawings: DrawingElement[] = [];
+
+        for (const elem of prev) {
+          if (elem.symbol !== symbol) {
+            nextDrawings.push(elem);
+            continue;
+          }
+
+          // 1. Tẩy từng phần nhỏ của nét cọ vẽ (Brush)
+          if (elem.type === 'brush') {
+            const rawPts = elem.extraData?.brushPoints || elem.points;
+            const remainingPts: ChartPoint[] = [];
+
+            let removedCount = 0;
+            for (const pt of rawPts) {
+              const pix = chartPointToPixel(pt);
+              if (pix && Math.hypot(pix.x - mouseX, pix.y - mouseY) <= radius) {
+                removedCount++;
+              } else {
+                remainingPts.push(pt);
+              }
+            }
+
+            if (removedCount > 0) {
+              hasChanges = true;
+              if (remainingPts.length >= 2) {
+                nextDrawings.push({
+                  ...elem,
+                  points: [remainingPts[0]],
+                  extraData: { ...elem.extraData, brushPoints: remainingPts },
+                });
+              }
+              // Nếu nét cọ bị xóa hết điểm thì bỏ qua không thêm vào nextDrawings
+              continue;
+            } else {
+              nextDrawings.push(elem);
+              continue;
+            }
+          }
+
+          // 2. Tẩy đường xu hướng (Trendline) hoặc Tia (Ray)
+          if (elem.type === 'trendline' || elem.type === 'ray') {
+            if (elem.points.length >= 2) {
+              const p1 = chartPointToPixel(elem.points[0]);
+              const p2 = chartPointToPixel(elem.points[1]);
+              if (p1 && p2) {
+                const dist = distanceToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y);
+                if (dist <= radius) {
+                  hasChanges = true;
+                  continue; // Xóa hình này
+                }
+              }
+            }
+          }
+
+          // 3. Tẩy đường giá ngang (Horizontal Line)
+          if (elem.type === 'horizontal' && elem.points.length >= 1) {
+            const p = chartPointToPixel(elem.points[0]);
+            if (p && Math.abs(mouseY - p.y) <= radius) {
+              hasChanges = true;
+              continue;
+            }
+          }
+
+          // 4. Tẩy hình hộp chữ nhật (Rectangle)
+          if (elem.type === 'rectangle' && elem.points.length >= 2) {
+            const p1 = chartPointToPixel(elem.points[0]);
+            const p2 = chartPointToPixel(elem.points[1]);
+            if (p1 && p2) {
+              const minX = Math.min(p1.x, p2.x);
+              const maxX = Math.max(p1.x, p2.x);
+              const minY = Math.min(p1.y, p2.y);
+              const maxY = Math.max(p1.y, p2.y);
+
+              if (
+                mouseX >= minX - radius &&
+                mouseX <= maxX + radius &&
+                mouseY >= minY - radius &&
+                mouseY <= maxY + radius
+              ) {
+                hasChanges = true;
+                continue;
+              }
+            }
+          }
+
+          // 5. Tẩy Fibonacci
+          if (elem.type === 'fibonacci' && elem.points.length >= 2) {
+            const p1 = chartPointToPixel(elem.points[0]);
+            const p2 = chartPointToPixel(elem.points[1]);
+            if (p1 && p2) {
+              const priceDiff = elem.points[1].price - elem.points[0].price;
+              let isHit = false;
+
+              for (const fib of FIBONACCI_LEVELS) {
+                const fibPrice = elem.points[0].price + priceDiff * fib.level;
+                const fibPixel = chartPointToPixel({ time: elem.points[0].time, price: fibPrice });
+                if (fibPixel && Math.abs(mouseY - fibPixel.y) <= radius) {
+                  isHit = true;
+                  break;
+                }
+              }
+
+              if (isHit) {
+                hasChanges = true;
+                continue;
+              }
+            }
+          }
+
+          // 6. Tẩy Thước đo (Measure) hoặc Vị thế (Long / Short Position) hoặc Ghi chú chữ (Text)
+          if (
+            elem.type === 'measure' ||
+            elem.type === 'long_position' ||
+            elem.type === 'short_position' ||
+            elem.type === 'text'
+          ) {
+            if (elem.points.length >= 1) {
+              const p = chartPointToPixel(elem.points[0]);
+              if (p && Math.hypot(p.x - mouseX, p.y - mouseY) <= radius * 2.5) {
+                hasChanges = true;
+                continue;
+              }
+            }
+          }
+
+          nextDrawings.push(elem);
+        }
+
+        return hasChanges ? nextDrawings : prev;
+      });
+    },
+    [symbol, chartPointToPixel]
+  );
+
+  /**
+   * Xử lý vẽ lại toàn bộ Canvas
    */
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -128,7 +290,6 @@ export function DrawingOverlay({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Đồng bộ kích thước canvas với thẻ cha
     const rect = canvas.getBoundingClientRect();
     if (canvas.width !== rect.width || canvas.height !== rect.height) {
       canvas.width = rect.width;
@@ -137,7 +298,7 @@ export function DrawingOverlay({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Vẽ các hình đã lưu trong danh sách drawings của symbol hiện tại
+    // 1. Vẽ các hình đã lưu
     const symbolDrawings = drawings.filter((d) => d.symbol === symbol);
 
     symbolDrawings.forEach((elem) => {
@@ -157,7 +318,6 @@ export function DrawingOverlay({
           ctx.lineWidth = isSelected ? elem.lineWidth + 1 : elem.lineWidth;
 
           if (elem.type === 'ray') {
-            // Kéo dài tia về cạnh phải màn hình
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
             if (dx !== 0) {
@@ -176,7 +336,6 @@ export function DrawingOverlay({
           }
           ctx.stroke();
 
-          // Vẽ điểm mốc 2 đầu
           ctx.fillStyle = isSelected ? '#a855f7' : elem.color;
           ctx.beginPath();
           ctx.arc(p1.x, p1.y, 4, 0, Math.PI * 2);
@@ -200,7 +359,6 @@ export function DrawingOverlay({
           ctx.lineTo(canvas.width, p.y);
           ctx.stroke();
 
-          // Nhãn giá bên góc phải
           ctx.setLineDash([]);
           ctx.fillStyle = elem.color;
           ctx.font = '11px Inter, sans-serif';
@@ -245,7 +403,6 @@ export function DrawingOverlay({
           const maxX = Math.max(canvas.width - 20, Math.max(p1.x, p2.x));
 
           ctx.save();
-          // Nối đường cơ sở từ Start đến End
           ctx.beginPath();
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
           ctx.setLineDash([2, 2]);
@@ -266,7 +423,6 @@ export function DrawingOverlay({
             ctx.lineTo(maxX, fibPixel.y);
             ctx.stroke();
 
-            // Nhãn mức Fibonacci
             ctx.fillStyle = fib.color;
             ctx.font = '10px Inter, sans-serif';
             ctx.fillText(`${fib.label}: ${fibPrice.toFixed(2)}`, minX + 8, fibPixel.y - 4);
@@ -315,7 +471,6 @@ export function DrawingOverlay({
           const boxWidth = textMetrics.width + padding * 2;
           const boxHeight = 24;
 
-          // Box nền ghi chú
           ctx.fillStyle = isSelected ? '#4c1d95' : 'rgba(15, 23, 42, 0.85)';
           ctx.strokeStyle = elem.color;
           ctx.lineWidth = 1.5;
@@ -324,7 +479,6 @@ export function DrawingOverlay({
           ctx.fill();
           ctx.stroke();
 
-          // Chữ
           ctx.fillStyle = '#ffffff';
           ctx.fillText(elem.text, p.x + padding, p.y + 4);
           ctx.restore();
@@ -341,7 +495,6 @@ export function DrawingOverlay({
           const isUp = meas.priceDelta >= 0;
 
           ctx.save();
-          // Vẽ vùng mờ bao quanh thước đo
           const minX = Math.min(p1.x, p2.x);
           const minY = Math.min(p1.y, p2.y);
           const width = Math.abs(p2.x - p1.x);
@@ -354,7 +507,6 @@ export function DrawingOverlay({
           ctx.lineWidth = 1.5;
           ctx.strokeRect(minX, minY, width, height);
 
-          // Hộp thông số đo lường
           const centerX = (p1.x + p2.x) / 2;
           const centerY = (p1.y + p2.y) / 2;
 
@@ -375,7 +527,6 @@ export function DrawingOverlay({
           ctx.fill();
           ctx.stroke();
 
-          // Chữ thông số
           ctx.font = 'bold 12px Inter, sans-serif';
           ctx.fillStyle = isUp ? '#10b981' : '#ef4444';
           ctx.fillText(
@@ -407,7 +558,6 @@ export function DrawingOverlay({
           const targetPrice = elem.points[1].price;
           const diff = Math.abs(targetPrice - entryPrice);
 
-          // Stop loss mặc định theo tỷ lệ 1:2
           const stopPrice = isLong ? entryPrice - diff / 2 : entryPrice + diff / 2;
           const pStop = chartPointToPixel({ time: elem.points[0].time, price: stopPrice });
           if (!pStop) break;
@@ -416,7 +566,6 @@ export function DrawingOverlay({
           const startX = pEntry.x;
 
           ctx.save();
-          // Vùng Xanh Take Profit
           ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
           ctx.strokeStyle = '#10b981';
           const tpMinY = Math.min(pEntry.y, pTarget.y);
@@ -424,7 +573,6 @@ export function DrawingOverlay({
           ctx.fillRect(startX, tpMinY, boxWidth, tpHeight);
           ctx.strokeRect(startX, tpMinY, boxWidth, tpHeight);
 
-          // Vùng Đỏ Stop Loss
           ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
           ctx.strokeStyle = '#ef4444';
           const slMinY = Math.min(pEntry.y, pStop.y);
@@ -432,7 +580,6 @@ export function DrawingOverlay({
           ctx.fillRect(startX, slMinY, boxWidth, slHeight);
           ctx.strokeRect(startX, slMinY, boxWidth, slHeight);
 
-          // Nhãn R:R
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 11px Inter, sans-serif';
           ctx.fillText(`R:R = 2.00 (${isLong ? 'LONG' : 'SHORT'})`, startX + 10, pEntry.y - 4);
@@ -484,7 +631,7 @@ export function DrawingOverlay({
       }
     }
 
-    // 3. Vẽ nét cọ vẽ trực tiếp (Live Brush Preview)
+    // 3. Vẽ nét cọ vẽ trực tiếp
     if (isDrawing && selectedTool === 'brush' && brushStroke.length > 1) {
       ctx.save();
       ctx.beginPath();
@@ -508,6 +655,30 @@ export function DrawingOverlay({
       ctx.stroke();
       ctx.restore();
     }
+
+    // 4. Vẽ Vòng Tròn Con Trỏ Cục Tẩy (Eraser Ring Indicator)
+    if (selectedTool === 'eraser' && eraserPos) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(eraserPos.x, eraserPos.y, 14, 0, Math.PI * 2);
+      ctx.fillStyle = isErasing ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.15)';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.fill();
+      ctx.stroke();
+
+      // Dấu X nhỏ ở giữa tâm cục tẩy
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      const xSize = 4;
+      ctx.beginPath();
+      ctx.moveTo(eraserPos.x - xSize, eraserPos.y - xSize);
+      ctx.lineTo(eraserPos.x + xSize, eraserPos.y + xSize);
+      ctx.moveTo(eraserPos.x + xSize, eraserPos.y - xSize);
+      ctx.lineTo(eraserPos.x - xSize, eraserPos.y + xSize);
+      ctx.stroke();
+      ctx.restore();
+    }
   }, [
     chart,
     series,
@@ -519,10 +690,12 @@ export function DrawingOverlay({
     previewPoint,
     brushStroke,
     selectedTool,
+    eraserPos,
+    isErasing,
     chartPointToPixel,
   ]);
 
-  // Lắng nghe sự kiện di chuyển và zoom của biểu đồ để cập nhật Canvas
+  // Lắng nghe sự kiện di chuyển và zoom của biểu đồ
   useEffect(() => {
     if (!chart) return;
 
@@ -543,18 +716,25 @@ export function DrawingOverlay({
 
   // Xử lý sự kiện Chuột (Mouse Events)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (selectedTool === 'cursor') {
-      // Tìm xem có click vào hình nào để chọn không
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // XỬ LÝ CỤC TẨY (Eraser Tool)
+    if (selectedTool === 'eraser') {
+      setIsErasing(true);
+      eraseAtPixel(x, y, 16);
+      return;
+    }
+
+    if (selectedTool === 'cursor') {
       let foundId: string | null = null;
       for (const elem of drawings.filter((d) => d.symbol === symbol)) {
         if (elem.points.length > 0) {
           const p = chartPointToPixel(elem.points[0]);
-          if (p && Math.hypot(p.x - mouseX, p.y - mouseY) < 25) {
+          if (p && Math.hypot(p.x - x, p.y - y) < 25) {
             foundId = elem.id;
             break;
           }
@@ -564,16 +744,10 @@ export function DrawingOverlay({
       return;
     }
 
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
     const pt = pixelToChartPoint(x, y);
     if (!pt) return;
 
     if (selectedTool === 'horizontal') {
-      // Đường ngang chỉ cần 1 điểm
       const newElem: DrawingElement = {
         id: `draw_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         type: 'horizontal',
@@ -599,13 +773,12 @@ export function DrawingOverlay({
       return;
     }
 
-    // Các công cụ 2 điểm (trendline, ray, rectangle, fibonacci, measure, long/short)
+    // Các công cụ 2 điểm
     if (!isDrawing) {
       setIsDrawing(true);
       setCurrentPoints([pt]);
       setPreviewPoint(pt);
     } else {
-      // Điểm thứ 2 hoàn thành hình vẽ
       const completedPoints = [...currentPoints, pt];
       const newElem: DrawingElement = {
         id: `draw_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -630,13 +803,24 @@ export function DrawingOverlay({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Cập nhật vị trí Cục Tẩy & Tẩy liên tục khi đang kéo chuột
+    if (selectedTool === 'eraser') {
+      setEraserPos({ x, y });
+      if (isErasing) {
+        eraseAtPixel(x, y, 16);
+      }
+      requestAnimationFrame(redrawCanvas);
+      return;
+    }
+
+    if (!isDrawing) return;
+
     const pt = pixelToChartPoint(x, y);
     if (!pt) return;
 
@@ -651,6 +835,11 @@ export function DrawingOverlay({
   };
 
   const handleMouseUp = () => {
+    if (selectedTool === 'eraser') {
+      setIsErasing(false);
+      return;
+    }
+
     if (selectedTool === 'brush' && isDrawing) {
       if (brushStroke.length > 1) {
         const newElem: DrawingElement = {
@@ -667,6 +856,14 @@ export function DrawingOverlay({
       setIsDrawing(false);
       setBrushStroke([]);
       setSelectedTool('cursor');
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (selectedTool === 'eraser') {
+      setEraserPos(null);
+      setIsErasing(false);
+      requestAnimationFrame(redrawCanvas);
     }
   };
 
@@ -695,13 +892,14 @@ export function DrawingOverlay({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
           pointerEvents: selectedTool === 'cursor' && !selectedDrawingId ? 'none' : 'auto',
-          cursor: selectedTool === 'cursor' ? 'default' : 'crosshair',
+          cursor: selectedTool === 'cursor' ? 'default' : selectedTool === 'eraser' ? 'none' : 'crosshair',
           zIndex: 5,
         }}
       />

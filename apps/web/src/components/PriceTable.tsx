@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Star, ArrowUpRight, ArrowDownRight, Bell, Eye } from 'lucide-react';
 import { CryptoPriceData } from '../hooks/useCryptoStream';
+import { CoinIcon } from './CoinIcon';
 
 interface Instrument {
   symbol: string;
@@ -228,19 +229,22 @@ export const PriceTable: React.FC<PriceTableProps> = ({
 
                   {/* Symbol & Name */}
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{inst.base}</span>
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
-                          color: 'var(--text-muted)',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        /{inst.quote}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <CoinIcon symbol={inst.base} size={28} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{inst.base}</span>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          /{inst.quote}
+                        </span>
+                      </div>
                     </div>
                   </td>
 

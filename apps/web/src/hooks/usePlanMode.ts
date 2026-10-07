@@ -14,36 +14,37 @@ const DEFAULT_INITIAL_BALANCE = 10000; // 10,000 USDT ảo ban đầu
 
 export function usePlanMode(realtimePrices: Record<string, CryptoPriceData>) {
   const [isPlanModeActive, setIsPlanModeActive] = useState<boolean>(true);
-  const [account, setAccount] = useState<PlanModeAccount>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          return JSON.parse(saved);
-        }
-      } catch (err) {
-        console.warn('Không thể đọc dữ liệu Plan Mode từ LocalStorage:', err);
-      }
-    }
-    return {
-      balance: DEFAULT_INITIAL_BALANCE,
-      initialBalance: DEFAULT_INITIAL_BALANCE,
-      positions: [],
-      orders: [],
-      history: [],
-    };
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [account, setAccount] = useState<PlanModeAccount>({
+    balance: DEFAULT_INITIAL_BALANCE,
+    initialBalance: DEFAULT_INITIAL_BALANCE,
+    positions: [],
+    orders: [],
+    history: [],
   });
 
-  // Tự động lưu trữ vào LocalStorage khi account thay đổi
+  // Tải dữ liệu từ LocalStorage sau khi component mounted trên client để tránh lỗi Hydration Mismatch
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
-      } catch (err) {
-        console.warn('Lỗi lưu Plan Mode vào LocalStorage:', err);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setAccount(JSON.parse(saved));
       }
+    } catch (err) {
+      console.warn('Không thể đọc dữ liệu Plan Mode từ LocalStorage:', err);
     }
-  }, [account]);
+    setIsLoaded(true);
+  }, []);
+
+  // Tự động lưu trữ vào LocalStorage khi account thay đổi (chỉ lưu sau khi đã nạp dữ liệu ban đầu)
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
+    } catch (err) {
+      console.warn('Lỗi lưu Plan Mode vào LocalStorage:', err);
+    }
+  }, [account, isLoaded]);
 
   /**
    * Nạp thêm tiền hoặc Đặt lại số dư không giới hạn
